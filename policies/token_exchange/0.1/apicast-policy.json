@@ -1,0 +1,11 @@
+{
+  "$schema": "http://apicast.io/policy-v1/schema#manifest#",
+  "name": "RHSSO Token Exchange",
+  "summary": "Perform token exchange",
+  "description": "Perform token exchange",
+  "version": "builtin",
+  "configuration": {
+    "type": "object",
+    "properties": {}
+  }
+}
