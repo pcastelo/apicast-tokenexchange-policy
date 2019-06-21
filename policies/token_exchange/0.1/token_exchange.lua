@@ -15,9 +15,8 @@ local function recover_referer(context)
 end
 
 function _M.new(config, context)
-    ngx.log(ngx.INFO ,'context:',self.context)
-    
     local self = new(config)
+    ngx.log(ngx.INFO ,'context:',self.context)
     self.config = config or {}
     self.exchange_url = config.exchange_url
     self.referer = recover_referer(context)
