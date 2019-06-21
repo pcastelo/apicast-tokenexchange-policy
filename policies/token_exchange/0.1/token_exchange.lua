@@ -1,7 +1,8 @@
 local policy = require('apicast.policy')
 local _M = policy.new('Token Exchange Policy')
+local http_ng = require 'resty.http_ng'
 local new = _M.new
-
+local cjson = require('cjson.safe')
 
 local function recover_referer(context)
     local referrer = ngx.var.http_referer
