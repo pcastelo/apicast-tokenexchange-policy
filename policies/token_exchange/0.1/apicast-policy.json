@@ -3,7 +3,7 @@
   "name": "RHSSO Token Exchange",
   "summary": "Perform token exchange",
   "description": "Perform token exchange",
-  "version": "builtin",
+  "version": "0.1",
   "configuration": {
     "type": "object",
     "properties": {}
