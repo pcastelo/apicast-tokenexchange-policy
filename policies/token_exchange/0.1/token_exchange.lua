@@ -3,6 +3,9 @@ local _M = policy.new('Token Exchange Policy')
 local http_ng = require 'resty.http_ng'
 local new = _M.new
 local cjson = require('cjson.safe')
+local user_agent = require 'apicast.user_agent'
+local resty_env = require('resty.env')
+local resty_url = require('resty.url')
 
 local function recover_referer(context)
     local referrer = ngx.var.http_referer
