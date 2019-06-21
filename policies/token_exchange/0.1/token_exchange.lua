@@ -34,7 +34,7 @@ end
 
 local function exchange_token(self)
     local res, err = self.http_client.post {
-        self.exchange_url, ngx.req.append_body({['Authorization'] = self.referer}),
+        self.exchange_url, ngx.req.append_body(self.referer),
         headers = { ['Authorization'] = self.credential }
     }
     if res.status == 200 then
