@@ -39,8 +39,8 @@ local function exchange_token(self)
 end
 
 function _M:access(context)
-    ngx.log(ngx.INFO ,'CONTEXT:',context)
-    ngx.log(ngx.INFO ,'SELF:',self)
+    --ngx.log(ngx.INFO ,'CONTEXT:',context)
+    --ngx.log(ngx.INFO ,'SELF:',self)
     ngx.log(ngx.INFO ,'REFERERR:',self.referer)
     exchange_token(self)
 end
