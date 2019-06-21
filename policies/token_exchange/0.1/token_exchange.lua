@@ -34,29 +34,14 @@ function _M.new(config, context)
 end
 
 local function exchange_token(self)
-    ngx.log(ngx.INFO ,'REFERER:',self.referer)
-    local res, err = self.http_client.post {
-        self.exchange_url, ngx.req.append_body(self.referer),
-        headers = { ['Authorization'] = self.credential }
-    }
-    if res.status == 200 then
-        local access_token, decode_err = cjson.decode(res.body)
-        if type(access_token) == 'table' then
-            self.new_authorization = access_token
-            return self
-        else
-            ngx.log(ngx.ERR, 'failed to parse access_token response:', decode_err)
-            return { active = false }
-        end
-    else
-        ngx.log(ngx.WARN, 'failed to execute access_token status: ', res.status)
-        return { active = false }
-    end
+    ngx.log(ngx.INFO ,'REFERERR:',self.referer)
+
 end
 
 function _M:access(context)
     ngx.log(ngx.INFO ,'CONTEXT:',context)
     ngx.log(ngx.INFO ,'SELF:',self)
+    ngx.log(ngx.INFO ,'REFERERR:',self.referer)
     exchange_token(self)
 end
 
