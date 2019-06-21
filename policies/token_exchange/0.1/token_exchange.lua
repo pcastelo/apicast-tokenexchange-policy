@@ -16,7 +16,7 @@ end
 
 function _M.new(config, context)
     local self = new(config)
-    ngx.log(ngx.INFO ,'context:',self.context)
+    ngx.log(ngx.INFO ,'context:',context)
     self.config = config or {}
     self.exchange_url = config.exchange_url
     self.referer = recover_referer(context)
