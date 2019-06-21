@@ -15,6 +15,8 @@ local function recover_referer(context)
 end
 
 function _M.new(config, context)
+    ngx.log(ngx.INFO ,'context:',self.context)
+    
     local self = new(config)
     self.config = config or {}
     self.exchange_url = config.exchange_url
@@ -33,6 +35,7 @@ function _M.new(config, context)
 end
 
 local function exchange_token(self)
+    ngx.log(ngx.INFO ,'REFERER:',self.referer)
     local res, err = self.http_client.post {
         self.exchange_url, ngx.req.append_body(self.referer),
         headers = { ['Authorization'] = self.credential }
