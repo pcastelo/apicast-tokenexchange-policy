@@ -6,6 +6,11 @@
   "version": "0.1",
   "configuration": {
     "type": "object",
-    "properties": {}
+    "properties": {
+      "exchange_url": {
+        "description": "Introspection Endpoint URL",
+        "type": "string"
+      }
+    }
   }
 }
