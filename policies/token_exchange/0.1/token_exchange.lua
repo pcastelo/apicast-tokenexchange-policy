@@ -36,7 +36,7 @@ local function exchange_token(self)
     ngx.log(ngx.INFO, 'REFERERR:', self.referer)
     local body = {}
     --ngx.req.read_body() or
-    body.insert(referer, self.referer)
+    body["referer"]= self.referer
     local res, err = self.http_client.post {
         self.exchange_url, body,
         headers = { ['Authorization'] = self.credential }
