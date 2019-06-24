@@ -5,6 +5,7 @@ local new = _M.new
 local cjson = require('cjson.safe')
 local user_agent = require 'apicast.user_agent'
 local resty_env = require('resty.env')
+local ipairs = ipairs
 
 local function recover_referer(context)
     local referrer = ngx.var.http_referer
@@ -57,6 +58,10 @@ local function exchange_token(self)
 end
 
 function _M:access(context)
+
+    for k,v in ipairs(context) do
+        print(k,v)
+    end
 --    ngx.log(ngx.INFO, 'CONTEXT:', context)
 --    ngx.log(ngx.INFO, 'SELF:', self)
     ngx.log(ngx.INFO, 'REFERERR:', self.referer)
