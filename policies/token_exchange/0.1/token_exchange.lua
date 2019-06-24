@@ -17,9 +17,6 @@ end
 function _M.new(config, context)
     local self = new(config)
     ngx.log(ngx.INFO, 'context:', context)
-    for k,v in ipairs(context) do
-        ngx.log(ngx.INFO, 'CONTEXT:', k,v)
-    end
     self.config = config or {}
     self.exchange_url = config.exchange_url
     self.referer = recover_referer(context)
