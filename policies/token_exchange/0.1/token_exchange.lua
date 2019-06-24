@@ -5,7 +5,6 @@ local new = _M.new
 local cjson = require('cjson.safe')
 local user_agent = require 'apicast.user_agent'
 local resty_env = require('resty.env')
-local resty_url = require('resty.url')
 
 local function recover_referer(context)
     local referrer = ngx.var.http_referer
@@ -16,7 +15,7 @@ end
 
 function _M.new(config, context)
     local self = new(config)
-    ngx.log(ngx.INFO ,'context:',context)
+    ngx.log(ngx.INFO, 'context:', context)
     self.config = config or {}
     self.exchange_url = config.exchange_url
     self.referer = recover_referer(context)
@@ -34,14 +33,32 @@ function _M.new(config, context)
 end
 
 local function exchange_token(self)
-    ngx.log(ngx.INFO ,'REFERERR:',self.referer)
-
+    ngx.log(ngx.INFO, 'REFERERR:', self.referer)
+    local body = ngx.req.read_body()
+    body.insert("referer", self.referer)
+    local res, err = self.http_client.post {
+        self.exchange_url, body,
+        headers = { ['Authorization'] = self.credential }
+    }
+    if res.status == 200 then
+        local access_token, decode_err = cjson.decode(res.body)
+        if type(access_token) == 'table' then
+            self.new_authorization = access_token
+            return self
+        else
+            ngx.log(ngx.ERR, 'failed to parse access_token response:', decode_err)
+            return { active = false }
+        end
+    else
+        ngx.log(ngx.WARN, 'failed to execute access_token status: ', res.status)
+        return { active = false }
+    end
 end
 
 function _M:access(context)
-    --ngx.log(ngx.INFO ,'CONTEXT:',context)
-    ngx.log(ngx.INFO ,'SELF:',self)
-    ngx.log(ngx.INFO ,'REFERERR:', self.referer)
+    ngx.log(ngx.INFO, 'CONTEXT:', context)
+    ngx.log(ngx.INFO, 'SELF:', self)
+    ngx.log(ngx.INFO, 'REFERERR:', self.referer)
     exchange_token(self)
 end
 
