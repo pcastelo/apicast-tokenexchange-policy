@@ -1,11 +1,24 @@
 local policy = require('apicast.policy')
 local _M = policy.new('Token Exchange Policy')
-local http_ng = require 'resty.http_ng'
+local http_ng = require('resty.http_ng')
+local user_agent = require('apicast.user_agent')
+local resty_url = require('resty.url')
 local new = _M.new
 local cjson = require('cjson.safe')
 local user_agent = require 'apicast.user_agent'
 local resty_env = require('resty.env')
 local ipairs = ipairs
+local http_proxy = require('resty.http.proxy')
+local http_ng_ngx = require('resty.http_ng.backend.ngx')
+local http_ng_resty = require('resty.http_ng.backend.resty')
+local http_authorization = require('resty.http_authorization')
+local errors = require('apicast.errors')
+
+local http_ng_backend_phase = {
+  access = http_ng_ngx,
+  rewrite = http_ng_ngx,
+  content = http_ng_ngx,
+}
 
 local function recover_referer(context)
     local referrer = ngx.var.http_referer
@@ -14,12 +27,91 @@ local function recover_referer(context)
     end
 end
 
+
+local function detect_http_client(endpoint)
+  local uri = resty_url.parse(endpoint)
+  local proxy = http_proxy.find(uri)
+
+  if proxy then -- use default client
+    return
+  else
+    return http_ng_backend_phase[ngx.get_phase()]
+  end
+end
+
+local function obtain_account(endpoint, access_token, userName, context)
+
+  local url = endpoint .. "/admin/api/accounts/find.json?access_token=".. access_token .. "&username=" .. userName
+    
+  local http_client = detect_http_client(endpoint)
+  
+  local res, err http_client.get { url }
+  
+  if res.status == 200 then
+   
+     local account, decode_err = cjson.decode(res.body)
+   
+     if  not account then
+          ngx.log(ngx.ERR, 'Account Id:', account.id)
+          return account.id
+     else
+         ngx.log(ngx.ERR, 'failed to parse account response:', decode_err)
+     end
+     
+   else 
+         ngx.log(ngx.ERR, 'failed to retrieve account response:', res.status)  
+   end
+    
+   return nil
+end
+
+local function obtain_application(endpoint, access_token, account_id, service_id, context)
+
+  local http_client = detect_http_client(endpoint)
+  
+  local url = endpoint .. "/" .. "admin/api/accounts/" .. account_id .. "/applications.json?access_token=" .. access_token 
+  
+  local res, err = http_client.get { url }
+  
+  if res.status == 200 then
+   
+     local applications, decode_err = cjson.decode(res.body)
+   
+     if type(applications) == 'table' then
+        ngx.log(ngx.ERR, 'Applications found:', #applications)
+          for i=1,#applications do
+              local application = applications[i]
+              if not application then
+                return errors.no_credentials(service)
+              else 
+                if application.user_service_id == service_id then
+                   return application.application_id
+                end
+              end
+          end
+        ngx.log(ngx.ERR, 'No application found for service id:', service_id)
+        return nil
+     else
+         ngx.log(ngx.ERR, 'failed to parse applications response:', decode_err)
+     end
+     
+   else 
+         ngx.log(ngx.ERR, 'failed to retrieve account response:', res.status)  
+   end
+    
+   return nil
+end
+
 function _M.new(config, context)
+
     local self = new(config)
-    ngx.log(ngx.INFO, 'context:', context)
+    
+    self.endpoint = resty_env.value("BACKEND_ENDPOINT_OVERRIDE")
+    
     self.config = config or {}
     self.exchange_url = config.exchange_url
     self.referer = recover_referer(context)
+    self.secret_token = resty_env.enabled('SECRET_ACCESS_TOKEN')
 
     self.http_client = http_ng.new {
         backend = config.client,
@@ -33,15 +125,23 @@ function _M.new(config, context)
     return self
 end
 
-local function exchange_token(self)
+
+
+
+local function exchange_token(self, token, application_id)
     ngx.log(ngx.INFO, 'REFERERR:', self.referer)
     local body = {}
     --ngx.req.read_body() or
+
     body["referer"]= self.referer
+    body["audience"] = application_id
+    body["subject_token"] = token
+
     local res, err = self.http_client.post {
         self.exchange_url, body,
         headers = { ['Authorization'] = self.credential }
     }
+    
     if res.status == 200 then
         local access_token, decode_err = cjson.decode(res.body)
         if type(access_token) == 'table' then
@@ -59,13 +159,43 @@ end
 
 function _M:access(context)
 
+    local account_id =  nil
+    local service_id = nil
+    local application_id = nil
+    
+    local service = context.service    
+    
+    if not service then
+      ngx.log(ngx.ERROR, 'no service id in context: ', service)
+      return errors.service_not_found(ngx.var.host)
+    else
+      service_id = service.id
+      account_id = obtain_account(self.endpoint, self.access_token, userName, context)
+      if not account_id then
+        ngx.log(ngx.ERROR, 'no account_id in context: ', account_id)
+        ngx.status = context.service.auth_failed_status
+        ngx.say(context.service.error_auth_failed)
+        return ngx.exit(ngx.status)
+      end
+      application_id =  obtain_application(self.endpoint, self.access_token, account_id, service_id, context)
+      if not application_id  then 
+      
+        ngx.log(ngx.ERROR, 'no application_id found for context: ', application_id)
+        ngx.status = context.service.auth_failed_status
+        ngx.say(context.service.error_auth_failed)
+        return ngx.exit(ngx.status)
+      end      
+    end
+    
     for k,v in ipairs(context) do
         ngx.log(ngx.INFO, 'CONTEXT:', k,v)
     end
---    ngx.log(ngx.INFO, 'CONTEXT:', context)
---    ngx.log(ngx.INFO, 'SELF:', self)
+
     ngx.log(ngx.INFO, 'REFERERR:', self.referer)
-    exchange_token(self)
+    
+    local authorization = http_authorization.new(ngx.var.http_authorization)
+
+    exchange_token(self, authorization.token, application_id)
 end
 
 
