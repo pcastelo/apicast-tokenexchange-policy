@@ -18,6 +18,7 @@ local tostring = tostring
 local JWT = require 'resty.jwt'
 local jwt_validators = require 'resty.jwt-validators'
 local assert = assert
+local type = type
 
 
 local http_ng_backend_phase = {
