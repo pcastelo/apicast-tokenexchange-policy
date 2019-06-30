@@ -173,7 +173,6 @@ end
 function _M.new(config, context)
 
     local self = new(config)
-    
     self.endpoint = resty_env.value("BACKEND_ENDPOINT_OVERRIDE")
     
     self.config = config or {}
@@ -237,20 +236,21 @@ function _M:access(context)
     
     local token_payload = jwt_obj.payload;
     
+    local endpoint = self.endpoint or (service and service.backend and service.backend.endpoint) or error('missing endpoint')
     
     if not service then
       ngx.log(ngx.ERROR, 'no service id in context: ', service)
       return errors.service_not_found(ngx.var.host)
     else
       service_id = service.id
-      account_id = obtain_account(self.endpoint, self.access_token, token_payload.preferred_username, context)
+      account_id = obtain_account(endpoint, self.access_token, token_payload.preferred_username, context)
       if not account_id then
         ngx.log(ngx.ERROR, 'no account_id in context: ', account_id)
         ngx.status = context.service.auth_failed_status
         ngx.say(context.service.error_auth_failed)
         return ngx.exit(ngx.status)
       end
-      application_id =  obtain_application(self.endpoint, self.access_token, account_id, service_id, context)
+      application_id =  obtain_application(endpoint, self.access_token, account_id, service_id, context)
       if not application_id  then 
       
         ngx.log(ngx.ERROR, 'no application_id found for context: ', application_id)
