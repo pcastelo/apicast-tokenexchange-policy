@@ -27,7 +27,7 @@ objects:
         name: apicast-policy:token
     source:
       git:
-        uri: https://github.com/pcastelo/apicast-tokenexchange-policy.git
+        uri: https://gustavo_muzzillo@bitbucket.org/na_labs/apicast-tokenexchange-policy.git
         ref: 'master'
       type: Git
     strategy:

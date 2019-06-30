@@ -1,8 +1,8 @@
 {
   "$schema": "http://apicast.io/policy-v1/schema#manifest#",
-  "name": "RHSSO Token Exchange",
-  "summary": "Perform token exchange",
-  "description": "Perform token exchange",
+  "name": "RHSSO -  Token Exchange",
+  "summary": "Perform token exchange integrating with La 2nda SSO-BUS",
+  "description": "Perform token exchange integrating with La 2nda SSO-BUS",
   "version": "0.1",
   "configuration": {
     "type": "object",
