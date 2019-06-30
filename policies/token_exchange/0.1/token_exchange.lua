@@ -13,12 +13,19 @@ local http_ng_ngx = require('resty.http_ng.backend.ngx')
 local http_ng_resty = require('resty.http_ng.backend.resty')
 local http_authorization = require('resty.http_authorization')
 local errors = require('apicast.errors')
+local setmetatable = setmetatable
+local tostring = tostring
+local JWT = require 'resty.jwt'
+local jwt_validators = require 'resty.jwt-validators'
+local assert = assert
+
 
 local http_ng_backend_phase = {
   access = http_ng_ngx,
   rewrite = http_ng_ngx,
   content = http_ng_ngx,
 }
+
 
 local function recover_referer(context)
     local referrer = ngx.var.http_referer
@@ -27,6 +34,66 @@ local function recover_referer(context)
     end
 end
 
+local jwt_mt = {
+  __tostring = function(jwt)
+    return jwt.token
+  end
+}
+
+
+local function load_jwt(token)
+  local jwt = JWT:load_jwt(tostring(token))
+
+  jwt.token = token
+
+  return setmetatable(jwt, jwt_mt)
+end
+
+function _M:parse(jwt, cache_key)
+  local cached = cache_key and self.cache:get(cache_key)
+
+  if cached then
+    ngx.log(ngx.DEBUG, 'found JWT in cache for ', cache_key)
+    return cached
+  end
+
+  return load_jwt(jwt)
+end
+
+-- Parses the token - in this case we assume it's a JWT token
+-- Here we can extract authenticated user's claims or other information returned in the access_token
+-- or id_token by RH SSO
+local function parse_and_verify_token(self, namespace, jwt_token)
+  local cache = self.cache
+
+  if not cache then
+    return nil, 'not initialized'
+  end
+  local cache_key = format('%s:%s', namespace or '<empty>', jwt_token)
+
+  local jwt = self:parse(jwt_token, cache_key)
+
+  if jwt.verified then
+    return jwt
+  end
+
+  local _, err = self:verify(jwt, cache_key)
+
+  return jwt, err
+end
+
+function _M:parse_and_verify(access_token, cache_key)
+  local jwt_obj, err = parse_and_verify_token(self, assert(cache_key, 'missing cache key'), access_token)
+
+  if err then
+    if ngx.config.debug then
+      ngx.log(ngx.DEBUG, 'JWT object: ', require('inspect')(jwt_obj), ' err: ', err, ' reason: ', jwt_obj.reason)
+    end
+    return nil, jwt_obj and jwt_obj.reason or err
+  end
+
+  return jwt_obj
+end
 
 local function detect_http_client(endpoint)
   local uri = resty_url.parse(endpoint)
@@ -165,12 +232,17 @@ function _M:access(context)
     
     local service = context.service    
     
+    local jwt_obj, err = self:parse_and_verify(self.access_token, self.cache_key or '<shared>')
+    
+    local token_payload = jwt_obj.payload;
+    
+    
     if not service then
       ngx.log(ngx.ERROR, 'no service id in context: ', service)
       return errors.service_not_found(ngx.var.host)
     else
       service_id = service.id
-      account_id = obtain_account(self.endpoint, self.access_token, userName, context)
+      account_id = obtain_account(self.endpoint, self.access_token, token_payload.preferred_username, context)
       if not account_id then
         ngx.log(ngx.ERROR, 'no account_id in context: ', account_id)
         ngx.status = context.service.auth_failed_status
